@@ -1,10 +1,12 @@
-FROM centos:7.9.2009
+ARG OS_VERSION=8.6
+ARG BASE_IMAGE=almalinux:${OS_VERSION}
+FROM ${BASE_IMAGE}
 
-LABEL org.opencontainers.image.source="https://github.com/giovtorres/docker-centos7-slurm" \
-      org.opencontainers.image.title="docker-centos7-slurm" \
-      org.opencontainers.image.description="Slurm All-in-one Docker container on CentOS 7" \
-      org.label-schema.docker.cmd="docker run -it -h slurmctl giovtorres/docker-centos7-slurm:latest" \
-      maintainer="Giovanni Torres"
+LABEL org.opencontainers.image.source="https://github.com/mtwes2718/docker_minislurm" \
+      org.opencontainers.image.authors="m.t.west@exeter.ac.uk" \
+      org.opencontainers.image.title="minislurm" \
+      org.opencontainers.image.description="Slurm All-in-one Docker container on ${BASE_IMAGE}" \
+      org.opencontainers.image.licenses="MIT"
 
 ENV PATH "/root/.pyenv/shims:/root/.pyenv/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin"
 
