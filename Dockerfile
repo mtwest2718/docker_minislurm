@@ -18,7 +18,8 @@ RUN set -ex \
     && dnf install -y 'dnf-command(config-manager)' \
     && dnf config-manager --set-enabled powertools \
     && dnf install -y epel-release \
-    # Install common DNF utilities packages
+    && dnf update -y \
+# Install common DNF utilities packages
     && dnf install -y \
         autoconf \
         cmake \
@@ -44,7 +45,7 @@ RUN set -ex \
         wget \
         which \
         vim-enhanced \
-    # Install Slurm, the daemons, and their dependencies
+# Install Slurm, the daemons, and their dependencies
     && dnf install -y \
         slurm \
         slurm-slurmd \
@@ -84,5 +85,5 @@ VOLUME ["/var/lib/mysql", "/var/lib/slurmd", "/var/spool/slurm", "/var/log/slurm
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-ENTRYPOINT ["/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
 CMD ["/bin/bash"]
