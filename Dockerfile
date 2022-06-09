@@ -12,124 +12,60 @@ ENV PATH "/root/.pyenv/shims:/root/.pyenv/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr
 
 EXPOSE 6817 6818 6819 6820 3306
 
-# Install common YUM dependency packages
-# The IUS repo install epel-release as a dependency while also providing a newer version of Git
+# Installing the Fedora EPEL repository for extra packages
 RUN set -ex \
-    && yum makecache fast \
-    && yum -y update \
-    && yum -y install https://repo.ius.io/ius-release-el7.rpm \
-    && yum -y install \
+    && cat input-dnf.conf >> /etc/dnf/dnf.conf \
+    && dnf update \
+    && dnf install 'dnf-command(config-manager)' \
+    && dnf config-manager --set-enabled powertools \
+    && dnf install epel-release
+
+# Install common DNF utilities packages
+RUN set -ex \
+    && dnf install \
         autoconf \
-        bash-completion \
-        bzip2 \
-        bzip2-devel \
+        cmake \
+        curl \
         file \
-        iproute \
         gcc \
         gcc-c++ \
-        gdbm-devel \
-        git236 \
-        glibc-devel \
-        gmp-devel \
-        libffi-devel \
-        libGL-devel \
-        libX11-devel \
+        git \
+        gnupg \
+        grep \
+        less \
         make \
+        man \
         mariadb-server \
-        mariadb-devel \
         munge \
-        munge-devel \
-        ncurses-devel \
+        openssl \
         patch \
-        perl-core \
         pkgconfig \
         psmisc \
-        readline-devel \
-        sqlite-devel \
-        tcl-devel \
-        tix-devel \
+        python39 \
+        python39-pip \
+        tini \
         tk \
-        tk-devel \
         supervisor \
         wget \
         which \
         vim-enhanced \
-        xz-devel \
-        zlib-devel http-parser-devel json-c-devel libjwt-devel libyaml-devel \
-    && yum clean all \
-    && rm -rf /var/cache/yum
 
-# Set Vim and Git defaults
+# Install Slurm, the daemons, and their dependencies
 RUN set -ex \
-    && echo "syntax on"           >> "$HOME/.vimrc" \
-    && echo "set tabstop=4"       >> "$HOME/.vimrc" \
-    && echo "set softtabstop=4"   >> "$HOME/.vimrc" \
-    && echo "set shiftwidth=4"    >> "$HOME/.vimrc" \
-    && echo "set expandtab"       >> "$HOME/.vimrc" \
-    && echo "set autoindent"      >> "$HOME/.vimrc" \
-    && echo "set fileformat=unix" >> "$HOME/.vimrc" \
-    && echo "set encoding=utf-8"  >> "$HOME/.vimrc" \
-    && git config --global color.ui auto \
-    && git config --global push.default simple
+    && dnf install -y \
+        slurm \
+        slurm-slurmd \
+        slurm-slurmctld \
+        slurm-slurmdbd \
+    && dnf clean all \
+    && dnf autoremove
 
-# Add Tini
-ENV TINI_VERSION v0.18.0
-ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
-RUN chmod +x /tini
-
-# Install OpenSSL1.1.1
-# See PEP 644: https://www.python.org/dev/peps/pep-0644/
-ARG OPENSSL_VERSION="1.1.1l"
+# Define Slurm user & group along with it's restricted storage directories
 RUN set -ex \
-    && wget --quiet https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz \
-    && tar xzf openssl-${OPENSSL_VERSION}.tar.gz \
-    && pushd openssl-${OPENSSL_VERSION} \
-    && ./config --prefix=/opt/openssl --openssldir=/etc/ssl \
-    && make \
-    && make test \
-    && make install \
-    && echo "/opt/openssl/lib" >> /etc/ld.so.conf.d/openssl.conf \
-    && ldconfig \
-    && popd \
-    && rm -rf openssl-${OPENSSL_VERSION}.tar.gz
-
-# Install supported Python versions and install dependencies.
-# Set the default global to the latest supported version.
-# Use pyenv inside the container to switch between Python versions.
-ARG PYTHON_VERSIONS="3.6.15 3.7.12 3.8.12 3.9.9 3.10.0"
-ARG CONFIGURE_OPTS="--with-openssl=/opt/openssl"
-RUN set -ex \
-    && curl https://pyenv.run | bash \
-    && echo "eval \"\$(pyenv init --path)\"" >> "${HOME}/.bashrc" \
-    && echo "eval \"\$(pyenv init -)\"" >> "${HOME}/.bashrc" \
-    && source "${HOME}/.bashrc" \
-    && pyenv update \
-    && for python_version in ${PYTHON_VERSIONS}; \
-        do \
-            pyenv install $python_version; \
-            pyenv global $python_version; \
-            pip install Cython pytest; \
-        done
-
-# Compile, build and install Slurm from Git source
-ARG SLURM_TAG=slurm-21-08-8-2
-ARG JOBS=4
-RUN set -ex \
-    && git clone -b ${SLURM_TAG} --single-branch --depth=1 https://github.com/SchedMD/slurm.git \
-    && pushd slurm \
-    && ./configure --prefix=/usr --sysconfdir=/etc/slurm --enable-slurmrestd \
-        --with-mysql_config=/usr/bin --libdir=/usr/lib64 \
-    && sed -e 's|#!/usr/bin/env python3|#!/usr/bin/python|' -i doc/html/shtml2html.py \
-    && make -j ${JOBS} install \
-    && install -D -m644 etc/cgroup.conf.example /etc/slurm/cgroup.conf.example \
-    && install -D -m644 etc/slurm.conf.example /etc/slurm/slurm.conf.example \
-    && install -D -m600 etc/slurmdbd.conf.example /etc/slurm/slurmdbd.conf.example \
-    && install -D -m644 contribs/slurm_completion_help/slurm_completion.sh /etc/profile.d/slurm_completion.sh \
-    && popd \
-    && rm -rf slurm \
-    && groupadd -r slurm  \
+    && groupadd -r slurm \
     && useradd -r -g slurm slurm \
-    && mkdir -p /etc/sysconfig/slurm \
+    && mkdir -p \
+        /etc/sysconfig/slurm \
         /var/spool/slurmd \
         /var/spool/slurmctld \
         /var/log/slurm \
@@ -141,11 +77,13 @@ RUN set -ex \
     && /sbin/create-munge-key
 
 RUN dd if=/dev/random of=/etc/slurm/jwt_hs256.key bs=32 count=1 \
-    && chmod 600 /etc/slurm/jwt_hs256.key && chown slurm.slurm /etc/slurm/jwt_hs256.key
+    && chmod 600 /etc/slurm/jwt_hs256.key \
+    && chown slurm.slurm /etc/slurm/jwt_hs256.key
 
+# New Slurm daemon config files
 COPY --chown=slurm files/slurm/slurm.conf files/slurm/gres.conf files/slurm/slurmdbd.conf /etc/slurm/
 COPY files/supervisord.conf /etc/
-
+# Restrict access to the database daemon
 RUN chmod 0600 /etc/slurm/slurmdbd.conf
 
 # Mark externally mounted volumes
