@@ -14,15 +14,12 @@ EXPOSE 6817 6818 6819 6820 3306
 
 # Installing the Fedora EPEL repository for extra packages
 RUN set -ex \
-    && cat input-dnf.conf >> /etc/dnf/dnf.conf \
-    && dnf update \
-    && dnf install 'dnf-command(config-manager)' \
+    && dnf update -y \
+    && dnf install -y 'dnf-command(config-manager)' \
     && dnf config-manager --set-enabled powertools \
-    && dnf install epel-release
-
-# Install common DNF utilities packages
-RUN set -ex \
-    && dnf install \
+    && dnf install -y epel-release \
+    # Install common DNF utilities packages
+    && dnf install -y \
         autoconf \
         cmake \
         curl \
@@ -31,8 +28,6 @@ RUN set -ex \
         gcc-c++ \
         git \
         gnupg \
-        grep \
-        less \
         make \
         man \
         mariadb-server \
@@ -49,9 +44,7 @@ RUN set -ex \
         wget \
         which \
         vim-enhanced \
-
-# Install Slurm, the daemons, and their dependencies
-RUN set -ex \
+    # Install Slurm, the daemons, and their dependencies
     && dnf install -y \
         slurm \
         slurm-slurmd \
