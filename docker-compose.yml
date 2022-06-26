@@ -4,6 +4,8 @@ services:
   slurm:
     build: .
     hostname: slurmctl
+    container_name: slurmy
+    cap_add: ['sys_admin']
     stdin_open: true
     tty: true
     volumes:
