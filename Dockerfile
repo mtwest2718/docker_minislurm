@@ -8,6 +8,13 @@ LABEL org.opencontainers.image.source="https://github.com/mtwes2718/docker_minis
       org.opencontainers.image.description="Slurm All-in-one Docker container on ${BASE_IMAGE}" \
       org.opencontainers.image.licenses="MIT"
 
+# The job submituser i.e. NOT root
+ARG SUBMIT_USER="submituser"
+ARG SUBMIT_UID="1000"
+ARG SUBMIT_GID="100"
+
+USER root
+
 ENV PATH "/root/.pyenv/shims:/root/.pyenv/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin"
 
 EXPOSE 6817 6818 6819 6820 3306
@@ -31,9 +38,6 @@ RUN set -ex \
         gnupg \
         make \
         man \
-        mariadb-server \
-        munge \
-        openssl \
         patch \
         pkgconfig \
         psmisc \
@@ -47,6 +51,11 @@ RUN set -ex \
         vim-enhanced \
 # Install Slurm, the daemons, and their dependencies
     && dnf install -y \
+        mariadb-server \
+        mariadb-devel \
+        munge \
+        openssl \
+        openssl-devel \
         slurm \
         slurm-slurmd \
         slurm-slurmctld \
@@ -84,6 +93,10 @@ RUN chmod 0600 /etc/slurm/slurmdbd.conf
 VOLUME ["/var/lib/mysql", "/var/lib/slurmd", "/var/spool/slurm", "/var/log/slurm"]
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+# make normal submit user
+RUN useradd -l -m -s /bin/bash -N -u "${SUBMIT_UID}" "${SUBMIT_USER}"
+USER ${SUBMIT_USER}
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
 CMD ["/bin/bash"]
